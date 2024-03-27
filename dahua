@@ -1,0 +1,69 @@
+#!/bin/perl -w
+
+use v5.14;
+use lib "./perl";
+use Utils;
+use IPC::Run3 qw(run3);
+
+my %options = Utils::parse_args
+    "c:CFG:v:$ENV{XDG_CONFIG_HOME}/dahua.conf",
+    "sd:RES:S:1",
+    "hd:RES:s",
+    "a:ALL:s";
+
+# Parse config {{{
+my @channels;
+my %config = Utils::parse_config $options{CFG}, {
+    host => '127.0.0.1',
+    port => '554',
+    user => 'admin'
+};
+my $pass = $config{pass};
+
+while (my ($key, $value) = each %config) {
+    if ($key eq 'passCmd') {
+        $pass = qx($value);
+        chomp $pass;
+    } elsif ($key =~ /channel\[(\d+)\]/) {
+        chomp $value;
+        push @channels, { ID => $1, NAME => $value };
+    }
+}
+
+$config{pass} = $pass;
+
+@channels = sort {$a->{NAME} cmp $b->{NAME}} @channels;
+# }}}
+
+my @choices;
+if ($options{ALL}) {
+    # open all channels
+    @choices = (0..@channels-1);
+} else {
+    # pick channels with dmenu
+    my ($input, $output, $lines);
+    $input = join "\n", map {$_->{NAME}} @channels;
+    $lines = @channels;
+    my $cmd = ['dmenu', '-i', '-c', '-ix', '-l', $lines, '-z', '300', '-p', 'Camera:'];
+
+    run3 $cmd, \$input, \$output;
+
+    @choices = split "\n", $output;
+}
+
+for my $channel (map {$channels[$_]} @choices) {
+    my ($user, $pass, $host, $port, $chid, $chname, $res) = (
+        $config{user},
+        $config{pass},
+        $config{host},
+        $config{port},
+        $channel->{ID},
+        $channel->{NAME},
+        $options{RES},
+    );
+    my $rtsp = "rtsp://$user:$pass\@$host:$port/cam/realmonitor?channel=$chid&subtype=$res";
+
+    system "mpv --really-quiet --aid=no --title='$channel->{NAME}' '$rtsp' &";
+}
+
+# vi: fdm=marker

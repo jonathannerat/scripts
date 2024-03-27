@@ -1,0 +1,32 @@
+#!/bin/perl -w
+
+use v5.14;
+use lib './perl/';
+use Utils;
+use IPC::Run3 qw(run3);
+
+my ($options, $args) = Utils::parse_args "c:CFG:v:$ENV{XDG_CONFIG_HOME}/dwol.conf";
+my $search = $args->[0];
+
+my %devices = Utils::parse_config $options->{CFG};
+my $device;
+
+if ($search) {
+     my @matches = grep /$search/i, keys %devices;
+     $device = $matches[0] if @matches == 1;
+}
+
+if (not $device) {
+    my $input = join("\n", keys %devices);
+    my $dmenu = ['dmenu', '-i', '-c', '-l', scalar %devices, '-z', 300, '-p', 'Server:', '-it', $search];
+
+    run3 $dmenu, \$input, \$device;
+
+    chomp $device;
+}
+
+if ($device) {
+    my $msg = qx(wol '$devices{$device}');
+    chomp $msg;
+    system "notify-send -a dwol -i network-wireless WakeOnLan '$msg'"
+}
