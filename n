@@ -1,0 +1,53 @@
+#!/bin/sh
+
+# Block nesting of nnn in subshells
+if [ -n $NNNLVL ] && [ "${NNNLVL:-0}" -ge 1 ]; then
+	echo "nnn is already running"
+	return
+fi
+
+# The default behaviour is to cd on quit (nnn checks if NNN_TMPFILE is set)
+# To cd on quit only on ^G, remove the "export" as in:
+#     NNN_TMPFILE="${XDG_CONFIG_HOME:-$HOME/.config}/nnn/.lastd"
+# NOTE: NNN_TMPFILE is fixed, should not be modified
+NNN_TMPFILE="$XDG_CONFIG_HOME/nnn/.lastd"
+
+if command -v trash-put >/dev/null; then
+    NNN_TRASH=1
+elif command -v gio >/dev/null; then
+    NNN_TRASH=2
+fi
+export NNN_TRASH
+
+plugs="$NNN_PLUG${NNN_PLUG:+;}o:nuke"
+plugs="$plugs;d:dragdrop"
+plugs="$plugs;p:preview-tui"
+plugs="$plugs;z:autojump"
+plugs="$plugs;f:fzopen"
+plugs="$plugs;m:mconnect"
+plugs="$plugs;a:"'!zoxide add \$nnn*'
+plugs="$plugs;y:"'!sh -c "echo \"$(realpath \"$1\")\" | xclip -selection clipboard" -- $nnn*'
+export NNN_PLUG="$plugs"
+
+export NNN_FIFO="$XDG_RUNTIME_DIR/nnn.fifo"
+export NNN_COLORS=1234
+export NNN_FCOLORS=c103042e006006f7c6d60501
+export NNN_OPTS=Ar
+
+# sort hidden files first
+export LC_COLLATE=C
+
+# Unmask ^Q (, ^V etc.) (if required, see `stty -a`) to Quit nnn
+stty start undef
+stty stop undef
+# stty lwrap undef
+stty lnext undef
+
+# Add the command line options you want to combine with cd on quit here, then run nnn with just "n"
+/usr/bin/nnn "$@"
+
+if [ -f "$NNN_TMPFILE" ]; then
+	. "$NNN_TMPFILE"
+	rm -f "$NNN_TMPFILE" > /dev/null
+fi
+
