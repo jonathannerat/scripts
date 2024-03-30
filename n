@@ -33,6 +33,7 @@ export NNN_FIFO="$XDG_RUNTIME_DIR/nnn.fifo"
 export NNN_COLORS=1234
 export NNN_FCOLORS=c103042e006006f7c6d60501
 export NNN_OPTS=Ar
+export NNN_TERMINAL="$TERMINAL"
 
 # sort hidden files first
 export LC_COLLATE=C
