@@ -1,11 +1,13 @@
-#!/bin/perl -w
+#!/bin/perl
 
 use v5.14;
-use lib "./perl";
-use Utils;
-use IPC::Run3 qw(run3);
+use File::Basename;
+use IPC::Run3 'run3';
 
-my %options = Utils::parse_args
+use lib dirname(__FILE__) . '/perl';
+use Utils;
+
+my ($options, $args) = Utils::parse_args
     "c:CFG:v:$ENV{XDG_CONFIG_HOME}/dahua.conf",
     "sd:RES:S:1",
     "hd:RES:s",
@@ -13,14 +15,14 @@ my %options = Utils::parse_args
 
 # Parse config {{{
 my @channels;
-my %config = Utils::parse_config $options{CFG}, {
+my $config = Utils::parse_config $options->{CFG}, {
     host => '127.0.0.1',
     port => '554',
     user => 'admin'
 };
-my $pass = $config{pass};
+my $pass = $config->{pass};
 
-while (my ($key, $value) = each %config) {
+while (my ($key, $value) = each %$config) {
     if ($key eq 'passCmd') {
         $pass = qx($value);
         chomp $pass;
@@ -30,13 +32,11 @@ while (my ($key, $value) = each %config) {
     }
 }
 
-$config{pass} = $pass;
-
-@channels = sort {$a->{NAME} cmp $b->{NAME}} @channels;
+$config->{pass} = $pass;
 # }}}
 
 my @choices;
-if ($options{ALL}) {
+if ($options->{ALL}) {
     # open all channels
     @choices = (0..@channels-1);
 } else {
@@ -53,13 +53,13 @@ if ($options{ALL}) {
 
 for my $channel (map {$channels[$_]} @choices) {
     my ($user, $pass, $host, $port, $chid, $chname, $res) = (
-        $config{user},
-        $config{pass},
-        $config{host},
-        $config{port},
+        $config->{user},
+        $config->{pass},
+        $config->{host},
+        $config->{port},
         $channel->{ID},
         $channel->{NAME},
-        $options{RES},
+        $options->{RES},
     );
     my $rtsp = "rtsp://$user:$pass\@$host:$port/cam/realmonitor?channel=$chid&subtype=$res";
 

@@ -1,17 +1,13 @@
 package Utils;
 
 use v5.14;
-use Data::Dumper;
 
-=head1 Parse simple config file into a hash
-Supports files without blanklines
-=cut
 sub parse_config {
     my ($path, $config) = @_;
     my $file;
 
     if ($path) {
-        open $file, '<', $path or die "Can't open $path $!";
+        open $file, '<', $path or die "Can't open $path: $!";
     } else {
         $file = 'STDIN';
     }
@@ -33,14 +29,9 @@ sub parse_config {
 
     close $file;
 
-    return %$config;
+    return $config;
 }
 
-# Formats:
-# - o:OPT:v:DEFAULT ==> "-o", %options{OPT} = VALUE or DEFAULT, consumes following arg
-# - o:OPT:S:VALUE ==> "-o", %options{OPT} = VALUE, also sets VALUE as default
-# - o:OPT:s:VALUE ==> "-o", %options{OPT} = VALUE
-# - o:OPT:s ==> o:OPT:s:1
 sub parse_args {
     my (%specs, %options, @args);
 
@@ -60,6 +51,9 @@ sub parse_args {
 
     while (@ARGV) {
         my $opt = shift @ARGV;
+
+        last if $opt eq "--";
+
         my $optname;
 
         if ($opt =~ /^-\w/) {
