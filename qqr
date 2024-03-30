@@ -1,0 +1,26 @@
+#!/bin/sh
+
+# qqr: Quick QR Encode
+# Quickly encode text or file in an image, open it, and delete it afterwards
+
+if ! command -v qrencode >/dev/null; then 
+    >&2 echo "'qrencode' needs to be installed"
+    exit 1
+fi
+
+image="$(mktemp --dry-run).png"
+
+cleanup() {
+    test -f "$image" && rm "$image"
+}
+
+trap cleanup EXIT
+
+if [ "$1" ]; then
+    echo "$1" | qrencode -o "$image"
+else
+    qrencode -o "$image"
+fi
+
+xdg-open "$image" &
+tail --pid="$!" -f /dev/null
