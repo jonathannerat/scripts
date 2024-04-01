@@ -3,26 +3,35 @@
 use v5.14;
 use File::Basename;
 use IPC::Run3 qw(run3);
+use Getopt::Long qw(:config pass_through);
 
 use lib dirname(__FILE__) . '/perl';
 use Utils;
 
-my ($options, $args) = Utils::parse_args "c:CFG:v:$ENV{XDG_CONFIG_HOME}/dwol.conf";
-my $search = $args->[0] || '';
+my $config = $ENV{XDG_CONFIG_HOME} . '/dwol.conf';
 
-my $devices = Utils::parse_config $options->{CFG};
-my @devnames = keys %$devices;
+GetOptions ( 'config' => \$config );
+
+my $search = @ARGV ? $ARGV[0] : '';
+my $devices = Utils::parse_config $config;
+my @names = keys %$devices;
 my $device;
 
 if ($search) {
-     my @matches = grep /$search/i, @devnames;
+     my @matches = grep /$search/i, @names;
      $device = $matches[0] if @matches == 1;
 }
 
 if (not $device) {
-    my $input = join "\n", @devnames;
-    my $lines = @devnames;
-    my $dmenu = ['dmenu', '-i', '-c', '-l', $lines, '-z', 300, '-p', 'Server:', '-it', $search];
+    my $input = join "\n", @names;
+    my $lines = @names;
+    my $dmenu = [
+        'dmenu', '-F', '-i', '-c',
+        '-l', $lines,
+        '-z', '300',
+        '-p', 'Server:',
+        '-it', $search
+    ];
 
     run3 $dmenu, \$input, \$device;
 
