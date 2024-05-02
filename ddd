@@ -2,30 +2,32 @@
 
 use v5.14;
 use Getopt::Long qw(:config pass_through);
-use IPC::Run3;
+use IPC::Run3 'run3';
 
 my $attempts = 3;
-my $edit = 0;
+my $edit     = 0;
 
-GetOptions ( 'edit' => \$edit, 'attempts=s' => \$attempts);
+GetOptions( 'edit' => \$edit, 'attempts=s' => \$attempts );
 
 sub doas_try {
-    my @cmd = ('doas', @_);
+    my @cmd        = ( 'doas', @_ );
     my $auth_error = 'doas: Authentication failed' . "\n";
-    my $stderr = $auth_error;
+    my $stderr     = $auth_error;
 
-    for my $attempt (1..$attempts) {
-        run3 \@cmd, undef, undef, \$stderr;
+    for my $attempt ( 1 .. $attempts ) {
+        run3 \@cmd, STDIN, undef, \$stderr;
 
-        if ($stderr eq $auth_error) {
+        if ( $stderr eq $auth_error ) {
             say STDERR 'ddd: Authentication failed ' . "[$attempt/$attempts]";
         } else {
+            print STDERR $stderr;
             last;
         }
     }
 }
 
 if ($edit) {
+
     # TODO: add edit support like 'sudo -e'
     # To authenticate the user only once, we could have another script (like
     # ddd-edit) do the actual editing logic, with all the arguments received
@@ -37,7 +39,7 @@ if ($edit) {
     # editor with all tmp file as arguments, with the user privileges (su -u
     # $UID). To do that, we should also have $UID passed as a parameter to
     # ddd-edit
-    die "not yet :(";
+    doas_try './ddd-edit', @ARGV;
 } else {
     doas_try @ARGV;
 }

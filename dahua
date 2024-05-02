@@ -4,65 +4,65 @@ use v5.14;
 use File::Basename;
 use Getopt::Long qw(:config pass_through);
 use IPC::Run3 'run3';
-use constant { HD => 0, SD => 1};
+use constant { HD => 0, SD => 1 };
 
 use lib dirname(__FILE__) . '/perl';
 use Utils;
 
 my $config = $ENV{XDG_CONFIG_HOME} . '/dahua.conf';
-my $res = SD;
-my $all = 0;
+my $res    = SD;
+my $all    = 0;
 
-GetOptions (
+GetOptions(
     'config=s' => \$config,
-    'hd' => sub { $res = HD },
-    'sd' => sub { $res = SD },
-    'all' => \$all
+    'hd'       => sub { $res = HD },
+    'sd'       => sub { $res = SD },
+    'all'      => \$all
 );
 
 # Parse config {{{
-$config = Utils::parse_config $config, {
+$config = Utils::parse_config $config,
+  {
     host => '127.0.0.1',
     port => '554',
     user => 'admin'
-};
+  };
 my $pass = $config->{pass};
 
 my @channels;
-while (my ($key, $value) = each %$config) {
-    if ($key eq 'passCmd') {
+while ( my ( $key, $value ) = each %$config ) {
+    if ( $key eq 'passCmd' ) {
         $pass = qx($value);
         chomp $pass;
-    } elsif ($key =~ /channel\[(\d+)\]/) {
+    } elsif ( $key =~ /channel\[(\d+)\]/ ) {
         chomp $value;
         push @channels, { ID => $1, NAME => $value };
     }
 }
 
 $config->{pass} = $pass;
+
 # }}}
 
 my @choices;
-if ($all) { # open all channels
-    @choices = (0..@channels-1);
-} else { # pick channels with dmenu
+if ($all) {    # open all channels
+    @choices = ( 0 .. @channels - 1 );
+} else {    # pick channels with dmenu
     my $search;
 
     if (@ARGV) {
         $search = $ARGV[0];
-        my @choices = grep {$channels[$_]->{NAME} =~ /$search/i} (0..@channels-1);
+        @choices =
+          grep { $channels[$_]->{NAME} =~ /$search/i } ( 0 .. @channels - 1 );
     }
 
-    if (!@choices) {
-        my $input = join "\n", map {$_->{NAME}} @channels;
+    if ( @choices == 0 ) {
+        my $input = join "\n", map { $_->{NAME} } @channels;
         my $output;
         my $lines = @channels;
-        my $cmd = [
-            'dmenu', '-F', '-i', '-c', '-ix',
-            '-l', $lines,
-            '-z', '300',
-            '-p', 'Camera:',
-            '-it', $search
+        my $cmd   = [
+            'dmenu', '-F', '-i',      '-c',  '-ix', '-l', $lines, '-z',
+            '300',   '-p', 'Camera:', '-it', $search
         ];
 
         run3 $cmd, \$input, \$output;
@@ -71,19 +71,14 @@ if ($all) { # open all channels
     }
 }
 
-for my $channel (map {$channels[$_]} @choices) {
-    my ($user, $pass, $host, $port, $chid, $chname, $res) = (
-        $config->{user},
-        $config->{pass},
-        $config->{host},
-        $config->{port},
-        $channel->{ID},
-        $channel->{NAME},
-        $res,
+for my $channel ( map { $channels[$_] } @choices ) {
+    my ( $user, $pass, $host, $port, $chid, $chname, $res ) = (
+        $config->{user}, $config->{pass},  $config->{host}, $config->{port},
+        $channel->{ID},  $channel->{NAME}, $res,
     );
     my $rtsp = "rtsp://$user:$pass\@$host:$port/cam/realmonitor?channel=$chid&subtype=$res";
 
-    system "mpv --really-quiet --aid=no --title='$channel->{NAME}' '$rtsp' &";
+    system "mpv --really-quiet --aid=no --title='Camera: $channel->{NAME}' '$rtsp' &";
 }
 
 # vi: fdm=marker
