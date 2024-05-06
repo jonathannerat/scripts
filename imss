@@ -1,0 +1,73 @@
+#!/bin/perl
+
+use v5.14;
+use Getopt::Long;
+
+sub check_dependency {
+    my $prg = shift(@_);
+    system "command -v '$prg' >/dev/null" || die "missing dependency: $prg";
+}
+
+check_dependency "magick";
+
+my $ss   = 'screen';
+my $tmp  = qx(mktemp --suffix=.png --dry-run);
+my $copy = 0;
+my $save = 1;
+my $output;
+
+GetOptions(
+    'area'     => sub { $ss = 'area' },
+    'monitor'  => sub { $ss = 'monitor' },
+    'window'   => sub { $ss = 'window' },
+    'copy'     => \$copy,
+    'save!'    => \$save,
+    'output=s' => \$output,
+);
+
+my $import_args = '';
+
+if ( $ss eq 'screen' ) {
+    $import_args = '-window root';
+} elsif ( $ss eq 'window' ) {
+    $import_args = '-screen';
+} elsif ( $ss eq 'monitor' ) {
+    check_dependency "xdotool";
+    check_dependency "xwininfo";
+    die "not implemented yet";
+}
+
+chomp($tmp);
+
+system "import $import_args '$tmp'";
+
+if ($output) {    # implies save
+    system "mv '$tmp' '$output";
+} else {
+    my $geometry  = qx(identify -format "%wx%h" "$tmp");
+    my $timestamp = qx(date "+%Y-%m-%d_%H:%M:%S");
+    my $ssdir     = "$ENV{'XDG_PICTURES_DIR'}/screenshots";
+
+    chomp($timestamp);
+
+    $output = "$ssdir/${timestamp}_${geometry}.png";
+
+    if ( !-d "$ssdir" ) {
+        system "mkdir -p '$ssdir'";
+    }
+
+    if ($save) {
+        system "mv '$tmp' '$output'";
+    } else {
+        $output = $tmp;
+    }
+}
+
+if ($copy) {
+    check_dependency "xclip";
+    my $mime = qx(file -b --mime-type "$output");
+
+    chomp($mime);
+
+    system "xclip -selection clipboard -target $mime '$output'";
+}
