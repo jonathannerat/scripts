@@ -1,0 +1,55 @@
+#!/bin/perl
+
+use v5.14;
+use Data::Dumper;
+
+my %targets;
+my $user = $ENV{DOAS_USER};
+
+for my $file (@ARGV) {
+    if (-d "$file") {
+        say STDERR "ddd: $file: not a regular file";
+        next;
+    }
+
+    if (-l "$file") {
+        say STDERR "ddd: $file: can't edit symbolic links";
+        next;
+    }
+
+    my $basename = qx(basename -z "$file");
+    my $name = $basename;
+    my $ext;
+
+    if ($basename =~ /\./) {
+        ($name, $ext) = $basename =~ /(.*)\.(.*)/;
+    }
+
+    my $tmp;
+
+    if (!$ext) {
+        $tmp = qx(mktemp "/tmp/$name.XXXXXXXX");
+    } else {
+        $tmp = qx(mktemp "/tmp/${name}XXXXXXXX.$ext");
+    }
+
+    chomp $tmp;
+
+    $targets{$tmp} = $file;
+
+    if (! -f "$file") {
+        $file = '/dev/null';
+    }
+
+    say "$file -> $tmp";
+
+    system "install -o '$user' -g '$user' -m 600 '$file' '$tmp'";
+}
+
+system "nvim", keys %targets;
+
+for (my ($tmp, $file) = each %targets) {
+    my $should_copy = (! -e $file && -s $tmp) || (-e $file && system "cmp '$file' '$tmp'");
+
+    system "cp '$tmp' '$file'" if $should_copy;
+}

@@ -1,0 +1,13 @@
+#!/bin/sh
+
+url="$1"
+notify-send -a qutebrowser -i qutebrowser "MPView" "Fetching formats for selected video..."
+sel=$(yt-dlp -j "$url" | jq -r '(.formats[] | select(.resolution != "audio only" and .acodec != null and .acodec != "none")) | "\(.format_id): \(.resolution) (\(.acodec))"' | dmenu -c -z 300 -l 10)
+
+if [ "$sel" ]; then
+    id="${sel%%:*}"
+    format="${sel#*: }"
+
+    notify-send -a qutebrowser -i mpv "MPView" "Viewing '$url' using format ($format)"
+    exec mpv --ytdl-format="$id" "$url"
+fi

@@ -1,0 +1,96 @@
+#!/bin/sh
+
+# imgkprnt: ImageMagick based screenshot script
+
+ssdir="${XDG_PICTURES_DIR:-$HOME/Pictures}/screenshots"
+tmpfile=$(mktemp /tmp/imkgprnt.XXXXXX.png)
+type=root
+timestamp="$(date "+%Y-%m-%d_%H:%M:%S")"
+file=""
+
+die() {
+	>&2 echo -e "$@"
+	exit 1
+}
+
+parse_geometry() {
+	tmp="$1"
+
+	w=${tmp%x*}  # (W)xH+X+Y
+	tmp=${tmp#*x}    # Wx(H+X+Y)
+	h=${tmp%%+*} # (H)+X+Y
+	tmp=${tmp#*+}    # H+(X+Y)
+	x=${tmp%+*}      # (X)+Y
+	tmp=${tmp#*+}
+	case "$x" in
+		*-*) 
+			x=${tmp%-*}
+			y="-${tmp#*-}" ;;
+		*) y=${tmp%*+} ;;
+	esac
+}
+
+trap 'test -f "$tmpfile" && rm "$tmpfile"' 0 1 15
+
+while getopts "Ohacmo:rw" o; do case "$o" in
+	h) die "Usage: imgkprnt [ -r | -w | -a | -m ] [ -o FILE ]\n" \
+"ImageMagick based screenshot script\n" \
+"Options:\n" \
+"	-r       take screenshot of the root window (default)\n" \
+"	-w       take screenshot of a window\n" \
+"	-a       take screenshot of a particular area\n" \
+"	-m       take screenshot of the current monitor\n" \
+"	-c       copy image to clipboard (requires xclip)\n" \
+"	-O       don't save the file to screenshots folder\n" \
+"	-o FILE  save the screenshot" ;;
+	O) dontsave=1 ;;
+	a) type=area ;;
+	c) copy=1 ;;
+	m) type=monitor ;;
+	o) file="$OPTARG" ;;
+	r) type=root ;;
+	w) type=window ;;
+	*) >&2 echo "Invalid option: -$o" && exit 1 ;;
+esac done
+
+case "$type" in
+	root) import -window root "$tmpfile" ;;
+	window) import -screen "$tmpfile" ;;
+	area) import "$tmpfile" ;;
+	monitor)
+        command -v xdotool || die "xdotool not installed."
+        command -v xwininfo || die "xdotool not installed."
+		wid=$(xdotool getactivewindow)
+		tmp=$(xwininfo -id "$wid" | grep -- -geometry)
+		parse_geometry "${tmp#*geometry }"
+		cx="$(echo "$x + $w / 2" | bc)"
+		cy="$(echo "$y + $h / 2" | bc)"
+
+		_exit=""
+		xrandr -q | grep -w connected | awk '{print $3}' | while read -r mongeometry && [ -z "$_exit" ]; do
+			parse_geometry "$mongeometry"
+			# checks  if the center of the window is inside a monitor
+			if [ "$x" -lt "$cx" ] && [ "$cx" -lt "$((x+w))" ] && [ "$y" -lt "$cy" ] && [ "$cy" -lt "$((y+h))" ]; then
+				_exit=1
+				import -window root "$tmpfile" -crop "$mongeometry"
+			fi
+		done ;;
+	*) >&2 echo "bad type $type" && exit 1 ;;
+esac
+
+if [ -n "$file" ]; then
+	mv "$tmpfile" "$file"
+else
+	size="$(identify -format "%wx%h" "$tmpfile")"
+	file="$ssdir/${timestamp}_${size}.png"
+	[ -d "$ssdir" ] || mkdir -p "$ssdir"
+
+	if [ "$dontsave" = 1 ]; then
+		file="$tmpfile"
+	else
+		mv "$tmpfile" "$file"
+	fi
+
+fi
+
+[ "$copy" = 1 ] && xclip -selection clipboard -target "$(file -b --mime-type "$file")" "$file"
