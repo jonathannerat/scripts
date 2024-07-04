@@ -1,0 +1,18 @@
+#!/bin/perl
+
+use v5.14;
+use Getopt::Long;
+
+my $length = 16;
+my @setnames = qw(alnum);
+
+GetOptions(
+    's' => sub { push @setnames, 'punct' },
+    'd' => sub { @setnames = qw(digit) },
+    'a=s' => \@setnames,
+    'n=s' => \$length,
+);
+
+my $charsets = join "", map { "[:$_:]" } @setnames;
+
+system "LC_ALL=C tr -dc '$charsets' </dev/urandom | head -c $length && echo";
