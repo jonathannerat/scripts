@@ -7,10 +7,11 @@ my $length = 16;
 my @setnames = qw(alnum);
 
 GetOptions(
-    's' => sub { push @setnames, 'punct' },
-    'd' => sub { @setnames = qw(digit) },
-    'a=s' => \@setnames,
-    'n=s' => \$length,
+    'symbols' => sub { push @setnames, 'punct' },
+    'digits' => sub { @setnames = qw(digit) },
+    'alpha' => sub { @setnames = qw(alpha) },
+    'include=s' => \@setnames,
+    'number=s' => \$length,
 );
 
 my $charsets = join "", map { "[:$_:]" } @setnames;
