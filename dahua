@@ -57,17 +57,20 @@ if ($all) {    # open all channels
     }
 
     if ( @choices == 0 ) {
-        my $input = join "\n", map { $_->{NAME} } @channels;
+        my @yad_channels = map {($_->{ID}, $_->{NAME})} sort {$a->{ID} cmp $b->{ID}} @channels;
         my $output;
-        my $lines = @channels;
         my $cmd   = [
-            'dmenu', '-F', '-i',      '-c',  '-ix', '-l', $lines, '-z',
-            '300',   '-p', 'Camera:', '-it', $search
+            'yad', '--list', '--multiple',
+            '--title=DAHUA', '--text=Select the cameras to show', '--image=camera-web',
+            '--width=300', '--height=200',
+            '--column=ID', '--column=Channel',
+            @yad_channels
         ];
 
-        run3 $cmd, \$input, \$output;
+        run3 $cmd, undef, \$output;
 
-        @choices = split "\n", $output;
+        # filter output IDs only
+        @choices = map {substr $_, 0, index($_, '|')} split "\n", $output;
     }
 }
 
