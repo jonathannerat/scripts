@@ -3,7 +3,7 @@
 # USAGE: pint-stdin < MyClass.php > MyClassFormatted.php
 # pint wrapper to support IO from/to stdin/stdout
 
-if ! command -v pint >/dev/null; then
+if ! command -v ./vendor/bin/pint >/dev/null; then
     >&2 echo "pint not installed"
     exit 1
 fi
