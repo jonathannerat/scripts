@@ -1,0 +1,31 @@
+#!/bin/sh
+
+# Git Branch Ls
+# This command lists branches that follow this convention:
+# - Branches starting with "trash/" are backups that should be deleted eventually, and thus
+#   shouldn't be shown on any list
+# - Branches starting with "release/<env>/" are copies of other branches that are ready to
+#   be deployed to <env> environment
+# - Any other branch is meant to be merged to the first environment / stage available
+#   (usually "dev")
+
+env="$1"
+format="%(if)%(HEAD)%(then)%(color:bold magenta)%(end)%(HEAD) %(refname:short)%(if)%(HEAD)%(then)%(color:default)%(end)"
+
+if [ "$env" = "trash" ]; then
+    git for-each-ref --format="$format" "refs/heads/trash/**"
+elif [ -z "$env" ]; then
+    # show main branches first (without / in the name, like "dev", "test", etc)
+    git for-each-ref --format="$format" "refs/heads/*"
+
+    # then specific branches (with / in the name, like "feature/...", "bugfix/...", etc)
+    git for-each-ref \
+        --format="$format" \
+        --exclude="refs/heads/trash/**" \
+        --exclude="refs/heads/release/**" \
+        "refs/heads/*/**"
+else
+    git for-each-ref \
+        --format="$format" \
+        "refs/heads/release/$env/**"
+fi
